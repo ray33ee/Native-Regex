@@ -11,6 +11,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Unfinished Ideas
 - Create an executable that converts Regex string into Rust, C and C++ source code
+- We can split regexes up into 3 different types based on the maximum number of possible captures in a regex:
+    - 0: Contains no captures. Return type Option<(index, index, slice)> showing the start and finish index of the match
+    - 1<=N<=31: Contains between 1 and 31 captures. Return type Option<[(start, finish, slice); N+1]>
+    - N>31: Contains more than 31 captures. Return type Option<Vec<(start, finish, slice)>>.
+
+## [0.1.1] - 2021-03-09
+
+### Added
+- Added MIT license
+- Tests for macros
+- Some basic hard-coded regexes
+
+### Changed
+- Macros moved to dedicated macro.rs module
+
+### Fixed
+- Logic and `SUBSTR_LEN` issues within `indexed_native_searcher` fixed.
 
 ## [0.1.0] - 2021-03-09
 

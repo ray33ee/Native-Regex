@@ -1,91 +1,44 @@
 
 use std::time::Instant;
+use core::num::FpCategory::Infinite;
+use regex::internal::Inst;
 
-macro_rules! replace_expr {
-    ($_t:tt $sub:expr) => {$sub};
-}
+mod macros;
+mod tests;
+mod example;
 
-macro_rules! indexed_native_searcher {
-    ( $name:ident, $first:expr, $( $characters:expr ; $index:expr ),* ) => {
-        fn $name(text: & str) -> Option<(usize, usize)> {
-
-            let mut index = 0;
-
-            const SUBSTR_LEN: usize = 4;
-
-            let text = text.as_bytes();
-
-            while index + SUBSTR_LEN - 1 < text.len() {
-
-                if text[index] != $first as u8 $(&& text[index+$index] != $characters as u8)* {
-                    return Some((index, index + SUBSTR_LEN))
-                }
-
-                index += 1;
-
-            }
-
-            None
-        }
-    };
-}
-
-macro_rules! native_searcher {
-    ( $name:ident, $( $characters:expr ),* ) => {
-        fn $name(text: & str) -> Option<(usize, usize)> {
-
-            let mut index = 0;
-            let mut counter = 0;
-
-            const SUBSTR_LEN: usize = <[()]>::len(&[$(replace_expr!(($characters) ())),*]);
-
-            let text = text.as_bytes();
-
-            while index + SUBSTR_LEN - 1 < text.len() {
-
-                $(
-                if text[index + counter] != $characters as u8 {
-                    index += 1;
-                    counter = 0;
-                    continue;
-                }
-                else {
-                    counter += 1;
-                }
-                )*
-
-                return Some((index, index + SUBSTR_LEN));
-            }
-            None
-        }
-    };
-}
-
-native_searcher!(literal_search, 'd', '!' );
-
+//Hard coded regex example. We use the following regex:
 
 fn main() {
 
-    let text = "Hello, world!";
+    //er(([a-f][fd])(hell))[4-6]g+
 
-    println!("Starting macro search...");
+    let text1 = "iodafid De erddhellhellhellhellhellhe5gggg sdwe-295";
+
     let start = Instant::now();
-    let res = literal_search(text);
-    let duration = start.elapsed();
-    println!("Finished. Duration: {:?}", duration);
+    let result = example::reg_nested_captures(text1);
+    let native_regex_duration = start.elapsed();
 
-    println!("Starting rfind search...");
+    println!("Native Regex result:  {:?}", result);
+    println!("Native Regex elapsed: {:?}", native_regex_duration);
+
     let start = Instant::now();
-    text.rfind("d!");
-    let duration = start.elapsed();
-    println!("Finished. Duration: {:?}", duration);
+    let re = regex::Regex::new("(hell)+").unwrap();
+    let compile_duration = start.elapsed();
 
-    match res {
-        Some((start, end)) => {
-            println!("Found match at {}..{} (substr: {})", start, end, &text[start..end]);
-        },
-        None => {
-            println!("Match not found.");
-        }
-    }
+    let start = Instant::now();
+    let mach = re.captures(text1);
+    let matching_duration = start.elapsed();
+
+    println!("Vanilla Regex result: {:?}", mach);
+    println!("Vanilla compile elapsed: {:?}", compile_duration);
+    println!("Vanilla match elapsed: {:?}", matching_duration);
+
+
+
+    use regex::Regex;
+
+
+
+
 }

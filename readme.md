@@ -17,3 +17,6 @@ This has the following benefits
 - No runtime overhead for compiling Regexes
 - Faster regex matching and performance
 
+# Unicode
+
+Native Regex does not support Unicode characters. For performance reasons it also does not check for them either. If a unicode character is found, this may result in undefined behaviour
