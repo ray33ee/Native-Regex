@@ -8,10 +8,10 @@ enum RepeaterType {
     ZeroAndAbove, //*
     OneAndAbove, //+
     ExactlyN(usize), //{N}
+    NAndAbove(usize), //{N,}
     Range(usize, usize) //{N, M}
 }
 
-#[derive(Debug)]
 struct Repeater {
     repeater: RepeaterType,
     length: usize
@@ -31,7 +31,8 @@ enum AnchorType {
 
 #[derive(Debug)]
 pub struct CharacterSet {
-    set: Vec<RangeInclusive<usize>>
+    inverted: bool,
+    set: Vec<RangeInclusive<u8>>
 }
 
 #[derive(Debug)]
@@ -54,7 +55,7 @@ impl From<& [u8]> for CharacterSet {
         let mut set = Vec::new();
 
         //Look for a '^' and chop it off
-        let negate = if slice[0] == '^' as u8 {
+        let inverted = if slice[0] == '^' as u8 {
             slice = &slice[1..];
             true
         } else {
@@ -64,12 +65,12 @@ impl From<& [u8]> for CharacterSet {
         //Similarly if we have leading or trailing '-' add them and chop the string
         if slice[0] == '-' as u8 {
             slice = &slice[1..];
-            set.push(RangeInclusive::new('-' as usize, '-' as usize));
+            set.push(RangeInclusive::new('-' as u8, '-' as u8));
         }
 
         if slice[slice.len() - 1] == '-' as u8 {
             slice = &slice[..slice.len()-1];
-            set.push(RangeInclusive::new('-' as usize, '-' as usize));
+            set.push(RangeInclusive::new('-' as u8, '-' as u8));
         }
 
         let mut index = 0;
@@ -78,40 +79,39 @@ impl From<& [u8]> for CharacterSet {
 
             let mut counter = 0;
 
-            let mut ch = '\0' as usize;
+            let mut ch = '\0' as u8;
 
             //Get current token
             if slice[index] == '\\' as u8 {
 
                 if slice[index+1] == 'd' as u8 {
-
+                    set.push(RangeInclusive::new('0' as u8, '9' as u8));
                     index += 2;
                     continue;
                 } else if slice[index+1] == 's' as u8 {
-
+                    set.push(RangeInclusive::new(' ' as u8, ' ' as u8));
+                    set.push(RangeInclusive::new('\t' as u8, '\t' as u8));
+                    set.push(RangeInclusive::new('\n' as u8, '\n' as u8));
+                    set.push(RangeInclusive::new('\r' as u8, '\r' as u8));
+                    set.push(RangeInclusive::new(12, 12)); //Form feed
                     index += 2;
                     continue;
                 } else if slice[index+1] == 'w' as u8 {
-
+                    set.push(RangeInclusive::new('A' as u8, 'Z' as u8));
+                    set.push(RangeInclusive::new('a' as u8, 'z' as u8));
+                    set.push(RangeInclusive::new('0' as u8, '9' as u8));
+                    set.push(RangeInclusive::new('_' as u8, '_' as u8));
                     index += 2;
                     continue;
-                } else if slice[index+1] == 'l' as u8 {
-
-                    index += 2;
-                    continue;
-                } else if slice[index+1] == 'u' as u8 {
-
-                    index += 2;
-                    continue;
-                } else {
-                    ch = slice[index+1] as usize;
+                }  else {
+                    ch = slice[index+1];
                     counter += 2;
                 }
 
 
 
             } else {
-                ch = slice[index] as usize;
+                ch = slice[index];
                 counter += 1;
             }
 
@@ -119,7 +119,7 @@ impl From<& [u8]> for CharacterSet {
 
                 //Get next token. If it's a '-' we have a range of characters
                 if slice[index + counter] == '-' as u8 {
-                    set.push(RangeInclusive::new(ch as usize, slice[index + counter + 1] as usize));
+                    set.push(RangeInclusive::new(ch as u8, slice[index + counter + 1] as u8));
                     index += counter + 2;
                 } else {
                     set.push(RangeInclusive::new(ch, ch));
@@ -133,37 +133,67 @@ impl From<& [u8]> for CharacterSet {
         }
 
         CharacterSet {
+            inverted,
             set
         }
     }
 }
 
 impl From<& [u8]> for Repeater{
+
     fn from(slice: & [u8]) -> Self {
 
 
         let mut repeater = RepeaterType::ExactlyOnce;
         let mut length = 0;
 
-        if !slice.is_empty() {
-            let first_char = slice[0];
+        let (repeater, length) = {
+            if !slice.is_empty() {
+                let first_char = slice[0];
 
-            if first_char == '?' as u8 {
-                repeater = RepeaterType::ZeroAndOne;
-                length = 1;
-            } else if first_char == '+' as u8 {
-                repeater = RepeaterType::OneAndAbove;
-                length = 1;
-            } else if first_char == '*' as u8 {
-                repeater = RepeaterType::ZeroAndAbove;
-                length = 1;
-            } else if first_char == '{' as u8 {
+                if first_char == '?' as u8 {
+                    (RepeaterType::ZeroAndOne, 1)
+                } else if first_char == '+' as u8 {
+                    (RepeaterType::OneAndAbove, 1)
+                } else if first_char == '*' as u8 {
+                    (RepeaterType::ZeroAndAbove, 1)
+                } else if first_char == '{' as u8 {
+                    let mut close_index = 1;
 
-            } else {
-                //repeater = RepeaterType::ExactlyOnce;
-                //length = 0;
+                    for ch in &slice[1..] {
+                        if *ch == '}' as u8 {
+                            break;
+                        }
+                        close_index += 1;
+                    }
+
+                    let mut substrings = (&slice[1..close_index]).split(|ch| *ch == ',' as u8);
+
+                    unsafe {
+                        let first_number = std::str::from_utf8_unchecked(substrings.next().unwrap()).parse::<usize>().unwrap();
+
+
+                        match substrings.next() {
+                            Some(second_substring) => {
+                                if second_substring.is_empty() {
+                                    (RepeaterType::NAndAbove(first_number), close_index + 1)
+                                } else {
+                                    (RepeaterType::Range(first_number, std::str::from_utf8_unchecked(second_substring).parse::<usize>().unwrap()), close_index + 1)
+                                }
+                            }
+                            None => {
+                                (RepeaterType::ExactlyN(first_number), close_index + 1)
+                            }
+                        }
+                    }
+                } else {
+                    (RepeaterType::ExactlyOnce, 0)
+                }
             }
-        }
+            else {
+                (RepeaterType::ExactlyOnce, 0)
+            }
+        };
 
         Repeater {
             repeater,
@@ -196,25 +226,19 @@ impl Token<'_> {
             (Token::Anchor(AnchorType::End), &slice[1..])
         } else if first_char == '^' as u8 {
             (Token::Anchor(AnchorType::Start), &slice[1..])
-        } else if first_char == '\\' as u8 ||
-            first_char >= 'a' as u8 &&  first_char <= 'z' as u8 ||
-            first_char >= 'A' as u8 &&  first_char <= 'Z' as u8 ||
-            first_char >= '0' as u8 &&  first_char <= '9' as u8 {
+        } else if first_char == '\\' as u8{
 
-            //Keep searching until we find a character that's not a literal character
-            //If the terminating character is a repeater then stop before the last character and ship as LiteralList
-            //Otherwise ship as a LiteralSingle
-            //If we have a single character with no repeater, ship as LiteralSingle.
-            //This one might take a bit more thought...
-            //Don't forget escaped characters like \+
-            //Also \\ will match with shorthand character classes too, so yehhh...
+            //If the next character is the character of a shorthand class, return a character class for that type.
+            //Otherwise return the escaped character
 
-            if first_char == '\\' as u8 {
-                let repeater = Repeater::from(&slice[2..]);
-                (Token::LiteralSingle(slice[1], repeater.repeater), &slice[repeater.length+2..])
+            let second_character = slice[1];
+
+            let repeater = Repeater::from(&slice[2..]);
+
+            if second_character == 's' as u8 || second_character == 'w' as u8 || second_character == 'd' as u8 {
+                (Token::CharacterClass(CharacterSet::from(&slice[0..2]), repeater.repeater), &slice[repeater.length+2..])
             } else {
-                let repeater = Repeater::from(&slice[1..]);
-                (Token::LiteralSingle(first_char, repeater.repeater), &slice[repeater.length+1..])
+                (Token::LiteralSingle(second_character, repeater.repeater), &slice[repeater.length+2..])
             }
 
         } else if first_char == '(' as u8 {
@@ -250,7 +274,19 @@ impl Token<'_> {
 
         } else {
             //Match as literal?
-            panic!("Not yet implemented - Match anything else");
+
+            /*
+
+              - Keep searching until we find a character that's not a literal character
+              - If the terminating character is a repeater then stop before the last character and ship as LiteralList
+              - Otherwise ship as a LiteralSingle
+              - If we have a single charcter with no repeater, ship as LiteralSingle.
+              - This one might take a bit more thought...
+              - Don't forget escaped characters like \+
+
+             */
+
+            panic!(format!("Character '{}' not yet implemented - Match anything else", first_char));
         }
 
     }

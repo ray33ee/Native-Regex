@@ -10,9 +10,11 @@ mod parse;
 
 fn main() {
 
-    ////((tim)*ber)*m
+    let regex = "\\+";
 
-    let ast = parse::NativeRegexAST::from("([A-Z][a-z]*)f?([0-9]*)".as_bytes());
+    regex::Regex::new(regex).unwrap();
+
+    let ast = parse::NativeRegexAST::from(regex.as_bytes());
 
     println!("Tree: {:?}", ast);
 

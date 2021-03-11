@@ -7,9 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### To Do
 - Double and triple check ALL bounds checks
 - Make sure `CharacterSet::from` contains no overlaps
-- Support shorthand character sets (within character sets and as stand alone)
 - Support all literal characters
-- Add support for {N} and {N,M} repetition
 
 ### Unfinished Ideas
 - We can split regexes up into 3 different types based on the maximum number of possible captures in a regex:
@@ -21,8 +19,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - If the terminating character is a repeater then stop before the last character and ship as LiteralList
   - Otherwise ship as a LiteralSingle
   - If we have a single charcter with no repeater, ship as LiteralSingle.
-  - This one might take a bit more thought...
-  - Don't forget escaped characters like \+
+
+## [0.1.3] - 2021-03-11
+
+### Added
+- Add support for {N}, {N,} and {N,M} repetition
+- Support for '^' in character classes
+- Support for shorthand classes within character classes
+- Support for shorthand classes outside of character classes and literal escaped characters
 
 ## [0.1.2] - 2021-03-09
 
