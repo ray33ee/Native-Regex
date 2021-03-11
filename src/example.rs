@@ -68,7 +68,7 @@ pub fn reg_modified_molecule(text: &str) -> Option<Vec<(usize, & str)>> {
         let second_cap_end = index + counter;
 
         unsafe {
-            return Some(vec![(first_cap_start, std::str::from_utf8_unchecked(&text[first_cap_start..second_cap_end])),
+            return Some(vec![(index, std::str::from_utf8_unchecked(&text[index..index+counter])),
                              (first_cap_start, std::str::from_utf8_unchecked(&text[first_cap_start..first_cap_end])),
                              (second_cap_start, std::str::from_utf8_unchecked(&text[second_cap_start..second_cap_end]))]);
         }
@@ -198,7 +198,7 @@ pub fn reg_nested_captures(text: & str) -> Option<Vec<(usize, & str)>> {
         }
 
         unsafe {
-            return Some(vec![(first_cap_start, std::str::from_utf8_unchecked(&text[index..index+counter])),
+            return Some(vec![(index, std::str::from_utf8_unchecked(&text[index..index+counter])),
                              (first_cap_start, std::str::from_utf8_unchecked(&text[first_cap_start..first_cap_end])),
                              (second_cap_start, std::str::from_utf8_unchecked(&text[second_cap_start..second_cap_end])),
                              (second_cap_start, std::str::from_utf8_unchecked(&text[third_cap_start..third_cap_end]))]);
@@ -208,6 +208,159 @@ pub fn reg_nested_captures(text: & str) -> Option<Vec<(usize, & str)>> {
     None
 }
 
-pub fn reg_captures_with_repeats(text: & str) {
+//(hello)*t
+pub fn reg_captures_with_repeats(text: & str) -> Option<Vec<(usize)>> {
 
+    let text = text.as_bytes();
+
+    let mut index = 0;
+
+    'outer: while index < text.len() {
+
+        //Start counter
+        let mut counter = 0;
+
+        //Capture group with repeater *
+        if index + counter > text.len() {
+            index += 1;
+            continue;
+        }
+        let mut first_cap_start = None;
+        let mut first_cap_end = None;
+
+        'inner: for _ in &text[index+counter..] {
+
+            first_cap_start = Some(index + counter);
+
+            //Multiple contiguous literal characters 'hello'
+            if index + counter + 5 > text.len() { //Bounds check. If this fails, there cannot possibly be a match at `index` so continue
+                break;
+            }
+
+            if !(text[index+counter] == 'h' as u8 && text[index+counter+1] == 'e' as u8 && text[index+counter+2] == 'l' as u8 && text[index+counter+3] == 'l' as u8 && text[index+counter+4] == 'o' as u8) {
+                break ;
+            }
+
+            counter += 5;
+
+            first_cap_end = Some(index + counter);
+
+
+        }
+
+        //Individual Literal character
+        if index + counter >= text.len() {
+            index += 1;
+            continue;
+        }
+
+        if !(text[index+counter] == 't' as u8) {
+            index += 1;
+            continue;
+        }
+
+        counter += 1;
+
+        unsafe {
+            return Some(vec![(index),
+                             (first_cap_start.unwrap_or(0))]);
+        }
+
+    }
+
+    None
+
+}
+
+//((tim)*ber)*m
+pub fn reg_double_nested(text: &str) -> Option<[Option<(usize, & str)>; 3]> {
+    let text = text.as_bytes();
+
+    let mut index = 0;
+
+    let mut captures: [Option<(usize, & str)>; 3] = [None; 3];
+
+    while index < text.len() {
+
+        //Start counter
+        let mut counter = 0;
+
+        let capture_zero_start = index;
+        let mut capture_first_start = index;
+        let mut capture_second_start = index;
+
+
+        for _ in &text[index+counter..] {
+
+
+            let mut capture_first_start = index + counter;
+
+            for _ in &text[index+counter..] {
+
+
+                let mut capture_second_start = index + counter;
+
+
+                //Multiple contiguous literal characters 'tim'
+                if index + counter + 3 > text.len() { //Bounds check. If this fails, there cannot possibly be a match at `index` so continue
+                    break;
+                }
+
+                if !(text[index+counter] == 't' as u8 && text[index+counter+1] == 'i' as u8 && text[index+counter+2] == 'm' as u8) {
+                    break ;
+                }
+
+                counter += 3;
+
+                unsafe {
+                    captures[2] = Some((capture_second_start, std::str::from_utf8_unchecked(&text[capture_second_start..index + counter])));
+                }
+
+            }
+
+            //Multiple contiguous literal characters 'ber'
+            if index + counter + 3 > text.len() { //Bounds check. If this fails, there cannot possibly be a match at `index` so continue
+                break;
+            }
+
+            if !(text[index+counter] == 'b' as u8 && text[index+counter+1] == 'e' as u8 && text[index+counter+2] == 'r' as u8) {
+                break;
+            }
+
+            counter += 3;
+
+            unsafe {
+                captures[1] = Some((capture_first_start, std::str::from_utf8_unchecked(&text[capture_first_start..index + counter])));
+            }
+
+        }
+
+        //Multiple contiguous literal characters 'ber'
+        if index + counter > text.len() { //Bounds check. If this fails, there cannot possibly be a match at `index` so continue
+            index += 1;
+            continue;
+        }
+
+        if !(text[index+counter] == 'm' as u8) {
+            index += 1;
+            continue;
+        }
+
+        counter += 1;
+
+        unsafe {
+            captures[0] = Some((capture_zero_start, std::str::from_utf8_unchecked(&text[capture_zero_start..index + counter])));
+        }
+
+        return Some(captures);
+    }
+
+
+    None
+}
+
+//(((tim)*ber)*m)*fin
+pub fn reg_triple_nested(text: &str) -> Option<Vec<Option<(usize, & str)>>> {
+
+    None
 }

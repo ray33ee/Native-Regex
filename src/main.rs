@@ -1,29 +1,38 @@
 
 use std::time::Instant;
-use core::num::FpCategory::Infinite;
-use regex::internal::Inst;
 
 mod macros;
 mod tests;
 mod example;
+mod parse;
 
 //Hard coded regex example. We use the following regex:
 
 fn main() {
 
-    //er(([a-f][fd])(hell))[4-6]g+
+    ////((tim)*ber)*m
 
-    let text1 = "iodafid De erddhellhellhellhellhellhe5gggg sdwe-295";
+    let ast = parse::NativeRegexAST::from("([A-Z][a-z]*)f?([0-9]*)".as_bytes());
+
+    println!("Tree: {:?}", ast);
+
+    /*let set = parse::CharacterSet::from("-[0e-9-g]-".as_bytes());
+
+    println!("set: {:?}", set);*/
+
+    //let re = regex::Regex::new("[-]\\").unwrap();
+
+    /*let text1 = "(sdldlsdf  m podfpodk";
 
     let start = Instant::now();
-    let result = example::reg_nested_captures(text1);
+    let result = example::reg_double_nested(text1);
     let native_regex_duration = start.elapsed();
 
     println!("Native Regex result:  {:?}", result);
     println!("Native Regex elapsed: {:?}", native_regex_duration);
 
     let start = Instant::now();
-    let re = regex::Regex::new("(hell)+").unwrap();
+    let re = regex::Regex::new("[0-9[a-z]]").unwrap();
     let compile_duration = start.elapsed();
 
     let start = Instant::now();
@@ -34,9 +43,7 @@ fn main() {
     println!("Vanilla compile elapsed: {:?}", compile_duration);
     println!("Vanilla match elapsed: {:?}", matching_duration);
 
-
-
-    use regex::Regex;
+    */
 
 
 
