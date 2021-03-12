@@ -1,8 +1,9 @@
 
 use std::ops::RangeInclusive;
+use std::fmt;
 
 #[derive(Debug)]
-enum RepeaterType {
+pub enum RepeaterType {
     ExactlyOnce, //No repetition
     ZeroAndOne, //?
     ZeroAndAbove, //*
@@ -18,35 +19,58 @@ struct Repeater {
 }
 
 #[derive(Debug)]
-enum GroupType {
+pub enum GroupType {
     Capturing, //()
     NonCapturing //(?:)
 }
 
 #[derive(Debug)]
-enum AnchorType {
+pub enum AnchorType {
     Start, //^
-    End //$
+    End, //$
+    WordBorder, // \b
 }
 
 #[derive(Debug)]
 pub struct CharacterSet {
-    inverted: bool,
-    set: Vec<RangeInclusive<u8>>
+    pub inverted: bool,
+    pub set: Vec<RangeInclusive<u8>>
 }
 
 #[derive(Debug)]
-enum Token<'a> {
+pub enum Token {
     CharacterClass(CharacterSet, RepeaterType), //Can be a traditional character class, [] or a shorthand character class
     Anchor(AnchorType),
     LiteralSingle(u8, RepeaterType),
-    LiteralList(& 'a [u8]),
-    Group(NativeRegexAST<'a>, RepeaterType, GroupType),
+    LiteralList(Vec<u8>),
+    Group(NativeRegexAST, RepeaterType, GroupType),
+    Alternation,
 }
 
 #[derive(Debug)]
-pub struct NativeRegexAST<'a> {
-    tokens: Vec<Token<'a>>
+pub struct NativeRegexAST {
+    pub tokens: Vec<Token>
+}
+
+impl std::fmt::Display for CharacterSet {
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", if self.inverted { "inverted" } else { "not inverted" })?;
+
+        for range in self.set.iter() {
+            if *range.start() == *range.end() {
+                write!(f, ", {}", *range.start() as char)?;
+            } else {
+                write!(f, ", {}-{}", *range.start() as char, *range.end() as char)?;
+            }
+        }
+
+
+
+
+        Ok(())
+    }
+
 }
 
 impl From<& [u8]> for CharacterSet {
@@ -202,7 +226,7 @@ impl From<& [u8]> for Repeater{
     }
 }
 
-impl Token<'_> {
+impl Token {
     fn from(slice: & [u8]) -> (Self, & [u8]) {
 
         let first_char = slice[0];
@@ -222,6 +246,8 @@ impl Token<'_> {
 
             (Token::CharacterClass(CharacterSet::from(&slice[1..close_index]), repeater.repeater), &slice[close_index+repeater.length+1..])
 
+        } else if first_char == '|' as u8 {
+            (Token::Alternation, &slice[1..])
         } else if first_char == '$' as u8 {
             (Token::Anchor(AnchorType::End), &slice[1..])
         } else if first_char == '^' as u8 {
@@ -233,13 +259,20 @@ impl Token<'_> {
 
             let second_character = slice[1];
 
-            let repeater = Repeater::from(&slice[2..]);
-
-            if second_character == 's' as u8 || second_character == 'w' as u8 || second_character == 'd' as u8 {
-                (Token::CharacterClass(CharacterSet::from(&slice[0..2]), repeater.repeater), &slice[repeater.length+2..])
-            } else {
-                (Token::LiteralSingle(second_character, repeater.repeater), &slice[repeater.length+2..])
+            if second_character == 'b' as u8 {
+                (Token::Anchor(AnchorType::WordBorder), &slice[2..])
             }
+            else {
+                let repeater = Repeater::from(&slice[2..]);
+
+                if second_character == 's' as u8 || second_character == 'w' as u8 || second_character == 'd' as u8 {
+                    (Token::CharacterClass(CharacterSet::from(&slice[0..2]), repeater.repeater), &slice[repeater.length+2..])
+                } else {
+                    (Token::LiteralSingle(second_character, repeater.repeater), &slice[repeater.length+2..])
+                }
+            }
+
+
 
         } else if first_char == '(' as u8 {
             let mut nest_depth = 1;
@@ -286,14 +319,102 @@ impl Token<'_> {
 
              */
 
-            panic!(format!("Character '{}' not yet implemented - Match anything else", first_char));
+            let mut finish_index = 1;
+
+            for ch in &slice[1..] {
+
+                if *ch == '+' as u8 || *ch == '*' as u8 || *ch == '?' as u8 || *ch == '{' as u8 {
+                    return if finish_index == 1 {
+                        let repeater = Repeater::from(&slice[1..]);
+                        (Token::LiteralSingle(first_char, repeater.repeater), &slice[repeater.length + 1..])
+                    } else {
+                        (Token::LiteralList(Vec::from(&slice[0..finish_index - 1])), &slice[finish_index - 1..])
+                    }
+
+
+                } else if *ch == '^' as u8 || *ch == '$' as u8 || *ch == '.' as u8 || *ch == '|' as u8 || *ch == '(' as u8 || *ch == ')' as u8 || *ch == '[' as u8 || *ch == '{' as u8 || *ch == '\\' as u8 {
+                    return if finish_index == 1 {
+                        (Token::LiteralSingle(first_char, RepeaterType::ExactlyOnce), &slice[1..])
+                    } else {
+                        (Token::LiteralList(Vec::from(&slice[0..finish_index])), &slice[finish_index..])
+                    }
+                } else {
+
+                }
+
+                finish_index += 1;
+            }
+
+            (Token::LiteralList(Vec::from(&slice[0..finish_index])), &slice[finish_index..])
+
+           // panic!(format!("Character '{}' not yet implemented - Match anything else", first_char));
         }
 
     }
 }
 
+impl NativeRegexAST {
 
-impl From<& [u8]> for NativeRegexAST<'_> {
+    pub fn get_captures(& self) -> usize {
+        let mut total = 0;
+
+        for token in self.tokens.iter() {
+            match token {
+                Token::Group(ast, _, _) => {
+                    total += ast.get_captures();
+                }
+                _ => {}
+            }
+        }
+
+        total+1 //We add one because on match we capture the entire match
+    }
+
+    fn recur_tree(& self, level: usize) {
+
+        let mut tabs = String::new();
+
+        for _ in 0..level {
+            tabs = format!("{}\t", tabs);
+        }
+
+        for token in self.tokens.iter() {
+            match token {
+                Token::Group(ast, repeater, group) => {
+                    println!("{}Group {:?} {:?}\n", tabs, repeater, group);
+                    ast.recur_tree(level+1);
+                },
+                Token::LiteralList(list) => {
+                    print!("{}LiteralList '", tabs);
+                    for ch in list {
+                        print!("{}", *ch as char);
+                    }
+                    print!("'\n");
+                },
+                Token::LiteralSingle(ch, repeater) => {
+                    println!("{}LiteralSingle '{}' {:?}", tabs, *ch as char, repeater);
+                }
+                Token::CharacterClass(set, repeeater) => {
+                    println!("{}{:?} {}\n", tabs, repeeater, set);
+                },
+                _ => {
+                    println!("{}{:?}\n", tabs, token);
+                }
+            }
+
+        }
+
+
+
+    }
+
+    pub fn tree(& self) {
+        self.recur_tree(0);
+    }
+
+}
+
+impl From<& [u8]> for NativeRegexAST {
     fn from(regex: & [u8]) -> Self {
 
         let mut tokens = Vec::new();

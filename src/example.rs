@@ -364,3 +364,184 @@ pub fn reg_triple_nested(text: &str) -> Option<Vec<Option<(usize, & str)>>> {
 
     None
 }
+
+//[0-9]{5}[a-z]
+pub fn reg_exactly_n(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
+    let text = str_text.as_bytes();
+
+    let mut index = 0;
+
+    let mut captures: [Option<(usize, & str)>; 1] = [None; 1];
+
+    while index < text.len() {
+
+        //Start counter
+        let mut counter = 0;
+
+        let capture_0_start = index + counter;
+
+        {
+            let mut match_count = 0;
+
+            for ch in &text[index + counter..] {
+                if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+                    break;
+                }
+
+                if !(*ch >= '0' as u8 && *ch <= '9' as u8) {
+                    break
+                }
+                counter += 1;
+
+                match_count += 1;
+
+                if match_count == 5 {
+                    break;
+                }
+            }
+
+            if match_count < 5 {
+                index += 1;
+                continue;
+            }
+
+
+        }
+
+        if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+            break;
+        }
+
+        if !(text[index+counter] >= 'a' as u8 && text[index+counter] <= 'z' as u8) {
+            break
+        }
+        counter += 1;
+
+
+        captures[0] = Some((index + counter, &str_text[capture_0_start..index+counter]));
+
+        return Some(captures);
+    }
+
+
+    None
+}
+
+//[0-9]{3-6}[a-z]
+pub fn reg_range_n_m(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
+    let text = str_text.as_bytes();
+
+    let mut index = 0;
+
+    let mut captures: [Option<(usize, & str)>; 1] = [None; 1];
+
+    while index < text.len() {
+
+        //Start counter
+        let mut counter = 0;
+
+        let capture_0_start = index + counter;
+
+        {
+            let mut match_count = 0;
+
+            for ch in &text[index + counter..] {
+                if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+                    break;
+                }
+
+                if !(*ch >= '0' as u8 && *ch <= '9' as u8) {
+                    break
+                }
+                counter += 1;
+
+                match_count += 1;
+
+                if match_count == 6 {
+                    break;
+                }
+            }
+
+            if match_count < 3 {
+                index += 1;
+                continue;
+            }
+
+
+        }
+
+        if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+            break;
+        }
+
+        if !(text[index+counter] >= 'a' as u8 && text[index+counter] <= 'z' as u8) {
+            break
+        }
+        counter += 1;
+
+
+        captures[0] = Some((index + counter, &str_text[capture_0_start..index+counter]));
+
+        return Some(captures);
+    }
+
+
+    None
+}
+
+//[0-9]{7,}[a-z]
+pub fn reg_n_above(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
+    let text = str_text.as_bytes();
+
+    let mut index = 0;
+
+    let mut captures: [Option<(usize, & str)>; 1] = [None; 1];
+
+    while index < text.len() {
+
+        //Start counter
+        let mut counter = 0;
+
+        let capture_0_start = index + counter;
+
+        {
+            let mut match_count = 0;
+
+            for ch in &text[index + counter..] {
+                if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+                    break;
+                }
+
+                if !(*ch >= '0' as u8 && *ch <= '9' as u8) {
+                    break
+                }
+                counter += 1;
+
+                match_count += 1;
+            }
+
+            if match_count < 7 {
+                index += 1;
+                continue;
+            }
+
+
+        }
+
+        if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+            break;
+        }
+
+        if !(text[index+counter] >= 'a' as u8 && text[index+counter] <= 'z' as u8) {
+            break
+        }
+        counter += 1;
+
+        captures[0] = Some((index + counter, &str_text[capture_0_start..index+counter]));
+
+        return Some(captures);
+    }
+
+
+    None
+}
