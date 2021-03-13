@@ -1,10 +1,8 @@
 use crate::parse::*;
-use crate::parse::Token::LiteralSingle;
 use std::ops::RangeInclusive;
-use std::net::Shutdown::Read;
 
-fn bounds_check(n: usize, nomatch: & 'static str) -> String {
-    format!("if index + counter + ({} - 1) > text.len() {{ {} }}", n, nomatch)
+fn bounds_check(n: usize) -> String {
+    format!("if index + counter + ({} - 1) > text.len() {{ index += 1; continue 'main; }}", n)
 }
 
 fn envelope(inner_code: String, repeater: &RepeaterType, nomatch: & str) -> String {
@@ -116,21 +114,21 @@ fn range_to_condition(range: & RangeInclusive<u8>) -> String {
     }
 }
 
-fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut usize, inforloop: bool) -> String {
+fn token_translate(token: & Token, capture_index: & mut usize, inforloop: bool) -> String {
 
     let nomatch = get_no_match(inforloop);
 
     match token {
         Token::LiteralSingle(character, repeater) => {
             let nomatch = get_no_match(*repeater != RepeaterType::ExactlyOnce || inforloop);
-            envelope(format!("{}\n\nif text[index + counter] != '{}' as u8 {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1, nomatch), *character as char, nomatch), repeater, nomatch)
+            envelope(format!("{}\n\nif text[index + counter] != '{}' as u8 {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1), *character as char, nomatch), repeater, nomatch)
         },
         Token::LiteralList(list) => {
             let mut conditions = format!("text[index + counter] == '{}' as u8", list[0] as char);
             for i in 1..list.len() {
                 conditions = format!("{} && text[index + counter + {}] == '{}' as u8", conditions, i, list[i] as char)
             }
-            format!("{}\n\nif !({}) {{ {} }}\n\ncounter += {};\n\n", bounds_check(list.len(), nomatch), conditions, nomatch, list.len())
+            format!("{}\n\nif !({}) {{ {} }}\n\ncounter += {};\n\n", bounds_check(list.len()), conditions, nomatch, list.len())
         },
         Token::Anchor(anchor) => match anchor {
             AnchorType::Start => {
@@ -140,19 +138,24 @@ fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut 
                 String::from("if index != text.len()-1 { index += 1; continue; }")
             },
             AnchorType::WordBorder => {
-                String::from("panic!(\"WORD BORDER NOT SUPPORTED\")")
+                String::from("panic!(\"WORD BORDER NOT SUPPORTED\");")
             }
         },
         Token::Alternation => {
-            String::from("panic!(\"ALTERNATION DEFINITELY NOT SUPPORTED\")")
+            String::from("panic!(\"ALTERNATION DEFINITELY NOT SUPPORTED\");")
         },
         Token::CharacterClass(set, repeater) => {
-            let nomatch = get_no_match(*repeater != RepeaterType::ExactlyOnce || inforloop);
+            let outernomatch = get_no_match(inforloop);
+
+            let withinnomatch = get_no_match(*repeater != RepeaterType::ExactlyOnce || inforloop);
+
             let mut ranges = range_to_condition(&set.set[0]);
+
             for i in 1..set.set.len() {
                 ranges = format!("{} || {}", ranges, range_to_condition(&set.set[i]))
             }
-            envelope(format!("{}\n\nif {}({}) {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1, nomatch), if set.inverted { "" } else { "!" }, ranges, nomatch), repeater, nomatch)
+
+            envelope(format!("{}\n\nif {}({}) {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1), if set.inverted { "" } else { "!" }, ranges, withinnomatch), repeater, outernomatch)
         },
         Token::Group(ast, repeater, group) => {
 
@@ -166,12 +169,12 @@ fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut 
 
                     *capture_index += 1;
 
-                    let inner_code = translate_ast(ast, false, capture_index, isinforloop);
+                    let inner_code = translate_ast(ast, capture_index, isinforloop);
 
                     envelope(format!("{{\n\n{}{}{}}}\n\n", capture_start, inner_code, capture_end), repeater, nomatch)
                 },
                 GroupType::NonCapturing => {
-                    let inner_code = translate_ast(ast, false, capture_index, isinforloop);
+                    let inner_code = translate_ast(ast, capture_index, isinforloop);
 
                     envelope(format!("{{\n\n{}}}\n\n", inner_code), repeater, nomatch)
                 }
@@ -180,19 +183,14 @@ fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut 
 
             code
         }
-        _ => {
-            String::new()
-        }
     }
 }
 
-fn translate_ast(ast: & NativeRegexAST, is_top: bool, capture_index: & mut usize, inforloop: bool) -> String {
+fn translate_ast(ast: & NativeRegexAST, capture_index: & mut usize, inforloop: bool) -> String {
     let mut code = String::new();
 
-    let no_match_break = if is_top { "index += 1; continue;"} else { "break;" };
-
     for token in ast.tokens.iter() {
-        code = format!("{}{}", code, token_translate(token, no_match_break, capture_index, inforloop));
+        code = format!("{}{}", code, token_translate(token, capture_index, inforloop));
     }
 
     code
@@ -215,7 +213,7 @@ pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
 
     let mut captures = vec![None; {}];
 
-    while index < text.len() {{
+    'main: while index < text.len() {{
 
         //Start counter
         let mut counter = 0;
@@ -231,5 +229,6 @@ pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
 
 
     None
-}}", regex, function_name, ast.get_captures(), translate_ast(&ast, true, & mut capture_index, false))
+}}", regex, function_name, ast.get_captures(), translate_ast(&ast, & mut capture_index, false))
 }
+

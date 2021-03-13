@@ -6,11 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### To Do
 - Make sure `CharacterSet::from` contains no overlaps
-- Finish off AST translator
-  - Support repeaters
-  - Make sure to break out of for loops and continue in main loop when rejecting
+- Add clap support for
+  - Entering and verifying the regex
+  - Selecting and verifying the output language
+- Add Result return codes to translate.rs functions if these functions fail (unsupported tokens detected, alternation or word border) return an error
+- Convert translate.rs from functional to object-oriented rust_translator.rs
+- Add support for dot match (see [here](https://www.regular-expressions.info/dot.html) for more details)
+- Check the following features
+  - ZeroAndOnce repetition (?)
+  - Character set negate (^)
+- Adda bunch of helper functions that act as a wrapper around the Native Regex function and implement as close to the `regex` crate as possible  
 
 ### Unfinished Ideas
+
+## [0.1.6] - 2021-03-13
+
+### Fixed 
+- Bounds checks now always continue in main loop
+- Counting captures `NativeRegexAST::get_captures` function excludes non-capturing groups
+- Cleared various warnings
 
 ## [0.1.5] - 2021-03-12
 

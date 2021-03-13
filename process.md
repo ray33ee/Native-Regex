@@ -42,7 +42,7 @@ pub fn function_name(str_text: &str) -> Option<[Option<(usize, & str)>; N]> {
 
     let mut captures: [Option<(usize, & str)>; N] = [None; N];
 
-    while index < text.len() {
+    'main: while index < text.len() {
 
         //Start counter
         let mut counter = 0;
@@ -122,7 +122,7 @@ Either way a character class is just a list of character ranges.
 BOUNDS_CHECK
 
 if ... {
-    NO_MATCH
+    index += 1; continue 'main;
 }
 
 counter += 1;

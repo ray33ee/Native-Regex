@@ -1,6 +1,5 @@
 
 use std::ops::RangeInclusive;
-use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum RepeaterType {
@@ -103,10 +102,8 @@ impl From<& [u8]> for CharacterSet {
 
             let mut counter = 0;
 
-            let mut ch = '\0' as u8;
-
             //Get current token
-            if slice[index] == '\\' as u8 {
+            let ch = if slice[index] == '\\' as u8 {
 
                 if slice[index+1] == 'd' as u8 {
                     set.push(RangeInclusive::new('0' as u8, '9' as u8));
@@ -128,16 +125,16 @@ impl From<& [u8]> for CharacterSet {
                     index += 2;
                     continue;
                 }  else {
-                    ch = slice[index+1];
                     counter += 2;
+                    slice[index+1]
                 }
 
 
 
             } else {
-                ch = slice[index];
                 counter += 1;
-            }
+                slice[index]
+            };
 
             if index + counter < slice.len() {
 
@@ -167,9 +164,6 @@ impl From<& [u8]> for Repeater{
 
     fn from(slice: & [u8]) -> Self {
 
-
-        let mut repeater = RepeaterType::ExactlyOnce;
-        let mut length = 0;
 
         let (repeater, length) = {
             if !slice.is_empty() {
@@ -360,8 +354,11 @@ impl NativeRegexAST {
 
         for token in self.tokens.iter() {
             match token {
-                Token::Group(ast, _, _) => {
-                    total += ast.get_captures();
+                Token::Group(ast, _, group) => match group {
+                    GroupType::Capturing => {
+                        total += ast.get_captures();
+                    }
+                    _ => {}
                 }
                 _ => {}
             }
