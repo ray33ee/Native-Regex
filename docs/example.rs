@@ -427,7 +427,7 @@ pub fn reg_exactly_n(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
     None
 }
 
-//[0-9]{3-6}[a-z]
+//(?:[0-9][A-Z]){3-6}[a-z]
 pub fn reg_range_n_m(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
     let text = str_text.as_bytes();
 
@@ -445,13 +445,29 @@ pub fn reg_range_n_m(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
         {
             let mut match_count = 0;
 
-            for ch in &text[index + counter..] {
+            for _ in &text[index + counter..] {
+
+                //let saved_count = counter;
+
                 if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+                    //counter = saved_count;
                     break;
                 }
 
-                if !(*ch >= '0' as u8 && *ch <= '9' as u8) {
-                    break
+                if !(text[index+counter] >= '0' as u8 && text[index+counter] <= '9' as u8) {
+                    //counter = saved_count;
+                    break;
+                }
+                counter += 1;
+
+                if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
+                    //counter = saved_count;
+                    break;
+                }
+
+                if !(text[index+counter] >= 'A' as u8 && text[index+counter] <= 'Z' as u8) {
+                    //counter = saved_count;
+                    break;
                 }
                 counter += 1;
 
@@ -467,15 +483,18 @@ pub fn reg_range_n_m(str_text: &str) -> Option<[Option<(usize, & str)>; 1]> {
                 continue;
             }
 
+            println!("Matched 3-6");
 
         }
 
         if index + counter + (1 - 1) > text.len() { //Bounds check. If this fails, there cannot possibly be a match at \`index\` so continue
-            break;
+            index += 1;
+            continue;
         }
 
         if !(text[index+counter] >= 'a' as u8 && text[index+counter] <= 'z' as u8) {
-            break
+            index += 1;
+            continue;
         }
         counter += 1;
 

@@ -140,7 +140,7 @@ The Nth capture group will have the following template
     
     ...
     
-    captures[N] = Some(index + counter, &text[capture_zero_start..index + counter]);
+    captures[N] = Some((index + counter, &str_text[capture_zero_start..index + counter]));
 }
 ```
 
@@ -219,17 +219,26 @@ The template is unchanged
 ## ZeroOrOne
 
 ```rust
-AttemptToMatch
-
-if Matched {
-    counter += MatchLength
+{
+    let mut match_count = 0;
+    
+    for _ in &text[index + counter..] {
+        ...
+        
+        match_count += 1;
+        
+        if match_count == 1 {
+            break;
+        }
+    }
+    
 }
 ```
 
 ## ZeroOrMore
 
 ```rust
-for ch in &text[index + counter..] {
+for _ in &text[index + counter..] {
     ...
 }
 ```
@@ -240,7 +249,7 @@ for ch in &text[index + counter..] {
 {
     let mut found = false;
 
-    for ch in &text[index + counter..] {
+    for _ in &text[index + counter..] {
         ...
         found = true;
     }
@@ -257,7 +266,7 @@ for ch in &text[index + counter..] {
 {
     let mut match_count = 0;
     
-    for ch in &text[index + counter..] {
+    for _ in &text[index + counter..] {
         ...        
         
         match_count += 1;
@@ -279,7 +288,7 @@ for ch in &text[index + counter..] {
 {
     let mut match_count = 0;
 
-    for ch in &text[index + counter..] {
+    for _ in &text[index + counter..] {
         ...
 
         match_count += 1;
@@ -301,7 +310,7 @@ for ch in &text[index + counter..] {
 {
     let mut match_count = 0;
 
-    for ch in &text[index + counter..] {
+    for _ in &text[index + counter..] {
         ...
 
         match_count += 1;

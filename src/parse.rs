@@ -2,7 +2,7 @@
 use std::ops::RangeInclusive;
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RepeaterType {
     ExactlyOnce, //No repetition
     ZeroAndOne, //?

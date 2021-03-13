@@ -1,37 +1,134 @@
 use crate::parse::*;
 use crate::parse::Token::LiteralSingle;
 use std::ops::RangeInclusive;
+use std::net::Shutdown::Read;
 
 fn bounds_check(n: usize, nomatch: & 'static str) -> String {
     format!("if index + counter + ({} - 1) > text.len() {{ {} }}", n, nomatch)
 }
 
-fn envelope(inner_code: String, repeater: &RepeaterType) -> String {
+fn envelope(inner_code: String, repeater: &RepeaterType, nomatch: & str) -> String {
 
+    match repeater {
+        RepeaterType::ExactlyOnce => {
+            inner_code
+        },
+        RepeaterType::ZeroAndOne => {
+        format!("{{
+    let mut match_count = 0;
 
-    inner_code
+    for _ in &text[index + counter..] {{
+        {}
+
+        match_count += 1;
+
+        if match_count == 1 {{
+            break;
+        }}
+    }}
+
+}}\n\n", inner_code)
+        },
+        RepeaterType::OneAndAbove => {
+            format!("{{
+    let mut found = false;
+
+    for _ in &text[index + counter..] {{
+        {}
+        found = true;
+    }}
+
+    if !found {{
+        {}
+    }}
+}}\n\n", inner_code, nomatch)
+        },
+        RepeaterType::ZeroAndAbove => {
+            format!("for _ in &text[index + counter..] {{
+    {}
+}}\n\n", inner_code)
+        },
+        RepeaterType::ExactlyN(n) => {
+            format!("{{
+    let mut match_count = 0;
+
+    for _ in &text[index + counter..] {{
+        {}
+
+        match_count += 1;
+
+        if match_count == {} {{
+            break;
+        }}
+    }}
+
+    if match_count < {} {{
+        {}
+    }}
+}}\n\n", inner_code, n, n, nomatch)
+        },
+        RepeaterType::Range(n, m) => {
+            format!("{{
+    let mut match_count = 0;
+
+    for _ in &text[index + counter..] {{
+        {}
+
+        match_count += 1;
+
+        if match_count == {} {{
+            break;
+        }}
+    }}
+
+    if match_count < {} {{
+        {}
+    }}
+}}\n\n", inner_code, m, n, nomatch)
+        },
+        RepeaterType::NAndAbove(n) => {
+            format!("{{
+    let mut match_count = 0;
+
+    for _ in &text[index + counter..] {{
+        {}
+
+        match_count += 1;
+    }}
+
+    if match_count < {} {{
+        {}
+    }}
+}}\n\n", inner_code, n, nomatch)
+        }
+    }
+}
+
+fn get_no_match(inforloop: bool) -> & 'static str {
+    if inforloop { "break;" } else { "index += 1; continue;" }
 }
 
 fn range_to_condition(range: & RangeInclusive<u8>) -> String {
     if range.start() == range.end() {
-        format!("text[index+counter] == {}", range.start())
+        format!("text[index+counter] == '{}' as u8", *range.start() as char)
     } else {
-        format!("text[index+counter] >= {} && text[index+counter] <= {}", range.start(), range.end())
+        format!("text[index+counter] >= '{}' as u8 && text[index+counter] <= '{}' as u8", *range.start() as char, *range.end() as char)
     }
 }
 
 fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut usize, inforloop: bool) -> String {
 
-    let nomatch = if inforloop { "break;" } else { "index += 1; continue;" };
+    let nomatch = get_no_match(inforloop);
 
     match token {
         Token::LiteralSingle(character, repeater) => {
-            envelope(format!("{}\n\nif text[index + counter] == {} {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1, nomatch), character, nomatch), repeater)
+            let nomatch = get_no_match(*repeater != RepeaterType::ExactlyOnce || inforloop);
+            envelope(format!("{}\n\nif text[index + counter] != '{}' as u8 {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1, nomatch), *character as char, nomatch), repeater, nomatch)
         },
         Token::LiteralList(list) => {
-            let mut conditions = format!("text[index + counter] == {}", list[0]);
+            let mut conditions = format!("text[index + counter] == '{}' as u8", list[0] as char);
             for i in 1..list.len() {
-                conditions = format!("{} && text[index + counter + {}] == {}", conditions, i, list[i])
+                conditions = format!("{} && text[index + counter + {}] == '{}' as u8", conditions, i, list[i] as char)
             }
             format!("{}\n\nif !({}) {{ {} }}\n\ncounter += {};\n\n", bounds_check(list.len(), nomatch), conditions, nomatch, list.len())
         },
@@ -50,31 +147,33 @@ fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut 
             String::from("panic!(\"ALTERNATION DEFINITELY NOT SUPPORTED\")")
         },
         Token::CharacterClass(set, repeater) => {
+            let nomatch = get_no_match(*repeater != RepeaterType::ExactlyOnce || inforloop);
             let mut ranges = range_to_condition(&set.set[0]);
             for i in 1..set.set.len() {
                 ranges = format!("{} || {}", ranges, range_to_condition(&set.set[i]))
             }
-            envelope(format!("{}\n\nif {}({}) {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1, nomatch), if set.inverted { "" } else { "!" }, ranges, nomatch), repeater)
+            envelope(format!("{}\n\nif {}({}) {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1, nomatch), if set.inverted { "" } else { "!" }, ranges, nomatch), repeater, nomatch)
         },
         Token::Group(ast, repeater, group) => {
+
+            //If the parent ast node is in a for loop, or the repeater of this capture group is a for loop
+            let isinforloop = *repeater != RepeaterType::ExactlyOnce || inforloop;
 
             let code = match group {
                 GroupType::Capturing => {
                     let capture_start = format!("let capture_{}_start = index+counter;\n\n", *capture_index);
-                    let capture_end = format!("captures[{}] = Some(index + counter, &text[capture_{}_start..index + counter]);\n\n", *capture_index, *capture_index);
+                    let capture_end = format!("captures[{}] = Some((index + counter, &str_text[capture_{}_start..index + counter]));\n\n", *capture_index, *capture_index);
 
                     *capture_index += 1;
 
-                    let inner_code = translate_ast(ast, false, capture_index, false);
+                    let inner_code = translate_ast(ast, false, capture_index, isinforloop);
 
-
-
-                    envelope(format!("{{\n\n{}{}{}}}\n\n", capture_start, inner_code, capture_end), repeater)
+                    envelope(format!("{{\n\n{}{}{}}}\n\n", capture_start, inner_code, capture_end), repeater, nomatch)
                 },
                 GroupType::NonCapturing => {
-                    let inner_code = translate_ast(ast, false, capture_index, false);
+                    let inner_code = translate_ast(ast, false, capture_index, isinforloop);
 
-                    envelope(format!("{{\n\n{}}}\n\n", inner_code), repeater)
+                    envelope(format!("{{\n\n{}}}\n\n", inner_code), repeater, nomatch)
                 }
             };
 
@@ -87,7 +186,7 @@ fn token_translate(token: & Token, nomatch: & 'static str, capture_index: & mut 
     }
 }
 
-pub fn translate_ast(ast: & NativeRegexAST, is_top: bool, capture_index: & mut usize, inforloop: bool) -> String {
+fn translate_ast(ast: & NativeRegexAST, is_top: bool, capture_index: & mut usize, inforloop: bool) -> String {
     let mut code = String::new();
 
     let no_match_break = if is_top { "index += 1; continue;"} else { "break;" };
@@ -99,3 +198,38 @@ pub fn translate_ast(ast: & NativeRegexAST, is_top: bool, capture_index: & mut u
     code
 }
 
+pub fn translate_ast_wrapper(regex: & str, function_name: & str) -> String {
+
+    //Add the base code, including capture array/vector and custom function name
+
+    let mut capture_index = 1;
+
+
+    let ast = crate::parse::NativeRegexAST::from(regex.as_bytes());
+
+    format!("// Hard coded function to match regex '{}'
+pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
+    let text = str_text.as_bytes();
+
+    let mut index = 0;
+
+    let mut captures = vec![None; {}];
+
+    while index < text.len() {{
+
+        //Start counter
+        let mut counter = 0;
+
+        let capture_0_start = index + counter;
+
+        {}
+
+        captures[0] = Some((index + counter, &str_text[capture_0_start..index+counter]));
+
+        return Some(captures);
+    }}
+
+
+    None
+}}", regex, function_name, ast.get_captures(), translate_ast(&ast, true, & mut capture_index, false))
+}

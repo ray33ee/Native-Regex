@@ -12,6 +12,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Unfinished Ideas
 
+## [0.1.5] - 2021-03-12
+
+### Added
+- Support for repeaters
+- NO_MATCH now works correctly
+- Wrapper function to add the base code to translator 
+- Correct handling of captures using `vec!`
+
+### Fixed
+- Inverter bug fixed on fixed character token translation
+- Double brackets around Some
+- Added one to `capture_index` since index 0 is saved for the first capture, the entire match
+
+### Changed
+- Moved examples to docs folder
+
+### Removed
+- Macros and tests
 
 ## [0.1.4] - 2021-03-11
 
