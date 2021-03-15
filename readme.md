@@ -17,10 +17,26 @@ This has the following benefits
 - No runtime overhead for compiling Regexes
 - Faster regex matching and performance
 
-
 # Limitations
 
-For various reasons, some features of common regexes are not yet supported
+For various reasons, some features of common regexes are not yet supported. 
+Most unsupported features are so because they would add a high overhead. Usually however, these limitations have work arounds, they just require you to think a little differently.
+
+# Precision
+
+With a normal regex it is possible to validate IPv4 addresses using the regex 
+
+```regexp
+\b(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\b
+```
+
+since alternation is not supported, this regex is not possible with Native Regex. However the much simpler version IS supported
+
+```regexp
+([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})
+```
+
+we can then use Rust to perform the bounds check. It is tempting to create these ultra precise regexes, but the reality is that it is much easier to create less precise regexes and perform the extra checks in the programming language.
 
 ## Unicode
 
@@ -41,11 +57,31 @@ This regex will not match under the Native Regex function. This is because the f
 This problem is circumvented by backtracking. This generally involves trying a less greedy match for the previous match.
 If this fails we keep trying different permutations until it matches. If we keep back tracking and no permutations work, the match fails.
 
-Backtracking is not yet implemented, but it may be in the future.
+Backtracking is very expensive. Chaining just a few repetition quantifiers can massively increase the multiplicity, and therefore the number of combinations to test.
+Backtracking, even in normal regexes should be avoided. Take the following regex used to match floating point numbers with optional scientific notation:
+
+```regexp
+[-+]?[0-9]*.?[0-9]+(?:[eE][-+]?[0-9]+)?
+```
+
+The backtracking mey not be obvious until you realise that the decimal point is optional, and when it is omitted we have
+
+```regexp
+[-+]?[0-9]*[0-9]+(?:[eE][-+]?[0-9]+)?
+```
+
+This next regex will also match scientific numbers without the need of backtracking
+
+```regexp
+[-+]?[0-9]+(.[0-9]+)?(?:[eE][-+]?[0-9]+)?
+```
+
+and is also usable with Native Regex. It seems that regexes can be often redesigned to avoid backtracking.
+It is for this reason that backtracking will not be supported due to the increased overhead.
 
 ## Alternation
 
-Alternation is not supported since it can be achieved with multiple regexes.
+Alternation is not supported since it uses backtracking and can be achieved with multiple regexes.
 
 Perhaps a system for combining multiple regexes will be implemented (similar to `RegexSet` from the [regex](https://github.com/rust-lang/regex) crate)
 
@@ -60,3 +96,7 @@ Lookarounds are not yet supported
 ## Free-Spacing
 
 Free-spacing is not yet supported since whitespace can be removed by the user.
+
+## Dot matching
+
+Dotmatching is dangerous at the best of times and shoud be avoided. Use negated character classes instead

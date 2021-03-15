@@ -1,19 +1,8 @@
 # Issue
 
-The following outline has the following issue:
+The following outline does not support backtracking. This will not be supported for performance reasons.
 
-The Regex '[0-9]*[0-9]' should match the following string
-
-"jfgodj 542323432 weporpweori".
-
-It does not, since we greedily match [0-9]* as '542323432' then nothing is left for the following [0-9].
-
-We need a way of backtracking regex tokens and permuting them and trying again.
-
-We need to find a way to try permutations of regexes. If all the possible permutations of a regex fails,
-backtrack to the previous and try all permutations of that. If all permutations fail, move on to the next character.
-
-# Explination
+# Explanation
 
 This document outlines how to take an abstract syntax tree (as outlined in parse.rs `NativeRegexAST`).
 This algorithm maps a token (as outlined in parse.rs `Token`) to Rust source code. Modifiers (such as

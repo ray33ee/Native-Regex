@@ -5,19 +5,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### To Do
-- Make sure `CharacterSet::from` contains no overlaps
+- Make sure `CharacterSet::from` contains no overlapping ranges
 - Add clap support for
   - Entering and verifying the regex
   - Selecting and verifying the output language
-- Add Result return codes to translate.rs functions if these functions fail (unsupported tokens detected, alternation or word border) return an error
 - Convert translate.rs from functional to object-oriented rust_translator.rs
-- Add support for dot match (see [here](https://www.regular-expressions.info/dot.html) for more details)
-- Check the following features
-  - ZeroAndOnce repetition (?)
-  - Character set negate (^)
-- Adda bunch of helper functions that act as a wrapper around the Native Regex function and implement as close to the `regex` crate as possible  
+- Add a bunch of helper functions that act as a wrapper around the Native Regex function and implement as close to the `regex` crate as possible, including
+ - Matching
+ - Capturing
+ - Regex sets
+- Change return type of generated function from a vector to a HashMap<String, &str> to prepare for named capture groups
 
 ### Unfinished Ideas
+
+## [0.1.7] - 2021-03-13
+
+### Added
+- Result return type to AST creation functions to handle invalid regexes
+- Support for dot matching token in `NativeRegexAST`
+
+### Fixed
+- Removed parenthesis around negated character class
+
+### Changed
+- Characters are converted into literal u8 instead of characters converted to u8
 
 ## [0.1.6] - 2021-03-13
 

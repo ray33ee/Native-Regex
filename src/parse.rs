@@ -43,6 +43,7 @@ pub enum Token {
     LiteralSingle(u8, RepeaterType),
     LiteralList(Vec<u8>),
     Group(NativeRegexAST, RepeaterType, GroupType),
+    DotMatch(RepeaterType),
     Alternation,
 }
 
@@ -267,6 +268,11 @@ impl Token {
             }
 
 
+
+        } else if first_char == '.' as u8 {
+            let repeater = Repeater::from(&slice[1..]);
+
+            (Token::DotMatch(repeater.repeater), &slice[repeater.length+1..])
 
         } else if first_char == '(' as u8 {
             let mut nest_depth = 1;

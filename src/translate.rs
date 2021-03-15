@@ -108,41 +108,41 @@ fn get_no_match(inforloop: bool) -> & 'static str {
 
 fn range_to_condition(range: & RangeInclusive<u8>) -> String {
     if range.start() == range.end() {
-        format!("text[index+counter] == '{}' as u8", *range.start() as char)
+        format!("text[index+counter] == {}", *range.start())
     } else {
-        format!("text[index+counter] >= '{}' as u8 && text[index+counter] <= '{}' as u8", *range.start() as char, *range.end() as char)
+        format!("text[index+counter] >= {} && text[index+counter] <= {}", *range.start(), *range.end())
     }
 }
 
-fn token_translate(token: & Token, capture_index: & mut usize, inforloop: bool) -> String {
+fn token_translate(token: & Token, capture_index: & mut usize, inforloop: bool) -> Result<String, String> {
 
     let nomatch = get_no_match(inforloop);
 
     match token {
         Token::LiteralSingle(character, repeater) => {
             let nomatch = get_no_match(*repeater != RepeaterType::ExactlyOnce || inforloop);
-            envelope(format!("{}\n\nif text[index + counter] != '{}' as u8 {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1), *character as char, nomatch), repeater, nomatch)
+            Ok(envelope(format!("{}\n\nif text[index + counter] != {} {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1), *character, nomatch), repeater, nomatch))
         },
         Token::LiteralList(list) => {
-            let mut conditions = format!("text[index + counter] == '{}' as u8", list[0] as char);
+            let mut conditions = format!("text[index + counter] == {}", list[0]);
             for i in 1..list.len() {
-                conditions = format!("{} && text[index + counter + {}] == '{}' as u8", conditions, i, list[i] as char)
+                conditions = format!("{} && text[index + counter + {}] == {}", conditions, i, list[i])
             }
-            format!("{}\n\nif !({}) {{ {} }}\n\ncounter += {};\n\n", bounds_check(list.len()), conditions, nomatch, list.len())
+            Ok(format!("{}\n\nif !({}) {{ {} }}\n\ncounter += {};\n\n", bounds_check(list.len()), conditions, nomatch, list.len()))
         },
         Token::Anchor(anchor) => match anchor {
             AnchorType::Start => {
-                String::from("if index != 0 { return None; }")
+                Ok(String::from("if index != 0 { return None; }"))
             },
             AnchorType::End => {
-                String::from("if index != text.len()-1 { index += 1; continue; }")
+                Ok(String::from("if index != text.len()-1 { index += 1; continue; }"))
             },
             AnchorType::WordBorder => {
-                String::from("panic!(\"WORD BORDER NOT SUPPORTED\");")
+                Ok(String::from("panic!(\"WORD BORDER NOT SUPPORTED\");"))
             }
         },
         Token::Alternation => {
-            String::from("panic!(\"ALTERNATION DEFINITELY NOT SUPPORTED\");")
+            Err(String::from("Alternation is not supported. Please see readme for more information."))
         },
         Token::CharacterClass(set, repeater) => {
             let outernomatch = get_no_match(inforloop);
@@ -155,7 +155,7 @@ fn token_translate(token: & Token, capture_index: & mut usize, inforloop: bool) 
                 ranges = format!("{} || {}", ranges, range_to_condition(&set.set[i]))
             }
 
-            envelope(format!("{}\n\nif {}({}) {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1), if set.inverted { "" } else { "!" }, ranges, withinnomatch), repeater, outernomatch)
+            Ok(envelope(format!("{}\n\nif {}{}{} {{ {} }}\n\ncounter += 1;\n\n", bounds_check(1), if set.inverted { "" } else { "!(" }, ranges, if set.inverted { "" } else { ")" }, withinnomatch), repeater, outernomatch))
         },
         Token::Group(ast, repeater, group) => {
 
@@ -169,34 +169,46 @@ fn token_translate(token: & Token, capture_index: & mut usize, inforloop: bool) 
 
                     *capture_index += 1;
 
-                    let inner_code = translate_ast(ast, capture_index, isinforloop);
+                    let inner_code = translate_ast(ast, capture_index, isinforloop)?;
 
                     envelope(format!("{{\n\n{}{}{}}}\n\n", capture_start, inner_code, capture_end), repeater, nomatch)
                 },
                 GroupType::NonCapturing => {
-                    let inner_code = translate_ast(ast, capture_index, isinforloop);
+                    let inner_code = translate_ast(ast, capture_index, isinforloop)?;
 
                     envelope(format!("{{\n\n{}}}\n\n", inner_code), repeater, nomatch)
                 }
             };
 
 
-            code
+            Ok(code)
+        },
+        Token::DotMatch(_) => {
+            Err(String::from("Dot matching is not supported. Please see readme for more information."))
         }
     }
 }
 
-fn translate_ast(ast: & NativeRegexAST, capture_index: & mut usize, inforloop: bool) -> String {
+fn translate_ast(ast: & NativeRegexAST, capture_index: & mut usize, inforloop: bool) -> Result<String, String> {
     let mut code = String::new();
 
     for token in ast.tokens.iter() {
-        code = format!("{}{}", code, token_translate(token, capture_index, inforloop));
+
+        match token_translate(token, capture_index, inforloop) {
+            Ok(token_code) => {
+                code = format!("{}{}", code, token_code);
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+
     }
 
-    code
+    Ok(code)
 }
 
-pub fn translate_ast_wrapper(regex: & str, function_name: & str) -> String {
+pub fn translate_ast_wrapper(regex: & str, function_name: & str) -> Result<String, String> {
 
     //Add the base code, including capture array/vector and custom function name
 
@@ -205,7 +217,9 @@ pub fn translate_ast_wrapper(regex: & str, function_name: & str) -> String {
 
     let ast = crate::parse::NativeRegexAST::from(regex.as_bytes());
 
-    format!("// Hard coded function to match regex '{}'
+    match translate_ast(&ast, & mut capture_index, false) {
+        Ok(tree_code) => {
+            Ok(format!("// Hard coded function to match regex '{}'
 pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
     let text = str_text.as_bytes();
 
@@ -229,6 +243,13 @@ pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
 
 
     None
-}}", regex, function_name, ast.get_captures(), translate_ast(&ast, & mut capture_index, false))
+}}", regex, function_name, ast.get_captures(), tree_code))
+        }
+        Err(e) => {
+            Err(e)
+        }
+    }
+
+
 }
 
