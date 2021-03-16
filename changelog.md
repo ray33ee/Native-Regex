@@ -6,17 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 ### To Do
 - Make sure `CharacterSet::from` contains no overlapping ranges
-- Add clap support for
-  - Entering and verifying the regex
-  - Selecting and verifying the output language
-- Convert translate.rs from functional to object-oriented rust_translator.rs
 - Add a bunch of helper functions that act as a wrapper around the Native Regex function and implement as close to the `regex` crate as possible, including
  - Matching
  - Capturing
  - Regex sets
-- Change return type of generated function from a vector to a HashMap<String, &str> to prepare for named capture groups
+- Add a validator for the function name to ensure that the name complies with the Rust naming system
 
 ### Unfinished Ideas
+- Try to identify regexes that use backtracking, and warn user that backtracking is not supported 
+
+## [0.1.8] - 2021-03-15
+
+### Added
+- Support for command line arguments
+- Save source to given file
+- Option to show or hide verbose output
+
+### Changed 
+- Migrated to returning captures as a hashmap instead of vector (in preparation for named captures)
+- Renamed translate.rs to rust_translate.rs to make room for future translators
 
 ## [0.1.7] - 2021-03-13
 

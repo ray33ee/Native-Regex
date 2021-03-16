@@ -165,7 +165,8 @@ fn token_translate(token: & Token, capture_index: & mut usize, inforloop: bool) 
             let code = match group {
                 GroupType::Capturing => {
                     let capture_start = format!("let capture_{}_start = index+counter;\n\n", *capture_index);
-                    let capture_end = format!("captures[{}] = Some((index + counter, &str_text[capture_{}_start..index + counter]));\n\n", *capture_index, *capture_index);
+                    //let capture_end = format!("captures[{}] = Some((index + counter, &str_text[capture_{}_start..index + counter]));\n\n", *capture_index, *capture_index);
+                    let capture_end = format!("captures.insert(\"{}\", Some((index + counter, &str_text[capture_{}_start..index+counter])));\n\n", *capture_index, *capture_index);
 
                     *capture_index += 1;
 
@@ -208,7 +209,7 @@ fn translate_ast(ast: & NativeRegexAST, capture_index: & mut usize, inforloop: b
     Ok(code)
 }
 
-pub fn translate_ast_wrapper(regex: & str, function_name: & str) -> Result<String, String> {
+pub fn translate(regex: & str, function_name: & str) -> Result<String, String> {
 
     //Add the base code, including capture array/vector and custom function name
 
@@ -219,13 +220,22 @@ pub fn translate_ast_wrapper(regex: & str, function_name: & str) -> Result<Strin
 
     match translate_ast(&ast, & mut capture_index, false) {
         Ok(tree_code) => {
+
+            let mut initialise_captures = String::new();
+
+            for i in 0..ast.get_captures() {
+                initialise_captures = format!("{} captures.insert(\"{}\", None);\n", initialise_captures, i);
+            }
+
             Ok(format!("// Hard coded function to match regex '{}'
-pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
+pub fn {}(str_text: &str) -> Option<std::collections::HashMap<& 'static str, Option<(usize, & str)>>> {{
     let text = str_text.as_bytes();
 
     let mut index = 0;
 
-    let mut captures = vec![None; {}];
+    let mut captures = std::collections::HashMap::new();
+
+    {}
 
     'main: while index < text.len() {{
 
@@ -236,14 +246,14 @@ pub fn {}(str_text: &str) -> Option<Vec<Option<(usize, & str)>>> {{
 
         {}
 
-        captures[0] = Some((index + counter, &str_text[capture_0_start..index+counter]));
+        captures.insert(\"0\", Some((index + counter, &str_text[capture_0_start..index+counter])));
 
         return Some(captures);
     }}
 
 
     None
-}}", regex, function_name, ast.get_captures(), tree_code))
+}}", regex, function_name, initialise_captures, tree_code))
         }
         Err(e) => {
             Err(e)
