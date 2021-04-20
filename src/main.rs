@@ -3,9 +3,7 @@ use clap::{Arg, App, crate_version, crate_authors};
 use std::fs::OpenOptions;
 use std::io::Write;
 
-mod parse;
-mod rust_translate;
-
+use native_regex_lib::rust_translate;
 
 fn main() -> Result<(), String> {
 
@@ -17,7 +15,7 @@ fn main() -> Result<(), String> {
             .short("f")
             .long("file")
             .help("File to output source code to")
-            .required(true)
+            .required(false)
             .validator(|file_name| {
                 if file_name.is_empty() {
                     Err(String::from("Please enter a valid file name"))
@@ -27,8 +25,7 @@ fn main() -> Result<(), String> {
             })
             .takes_value(true))
         .arg(Arg::with_name("regex")
-            .short("r")
-            .long("regex")
+            .short("r").long("regex")
             .help("The regex to convert into source")
             .validator(|regex| {
                 match regex::Regex::new(&regex) {
@@ -68,18 +65,6 @@ fn main() -> Result<(), String> {
 
     let verbosity = matches.is_present("verbosity");
 
-    let file_name = matches.value_of("file").unwrap();
-
-    let ast = parse::NativeRegexAST::from(regex.as_bytes());
-
-    if verbosity {
-        println!("----- AST -----");
-
-        ast.tree();
-
-        println!("----- CAPTURES {} -----", ast.get_captures());
-    }
-
     let translation_result = match matches.value_of("language").unwrap() {
         "Rust" => {
             rust_translate::translate(regex, function_name)
@@ -91,35 +76,45 @@ fn main() -> Result<(), String> {
         Ok(code) => {
 
             if verbosity {
-                println!("----- SOURCE ----- \n{}", code);
-                println!("----- END -----");
+                eprintln!("----- SOURCE ----- \n{}", code);
+                eprintln!("----- END -----");
             }
 
-            let file_result = OpenOptions::new()
-                .read(false)
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(file_name);
+            if matches.is_present("file") {
+                let file_name = matches.value_of("file").unwrap();
 
-            match file_result {
-                Ok(mut handle) => {
-                    match handle.write_all(code.as_bytes()) {
-                        Ok(_) => {
-                            Ok(())
-                        }
-                        Err(e) => {
-                            Err(format!("Could not save source code to file '{}' - {}", file_name, e))
+                let file_result = OpenOptions::new()
+                    .read(false)
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(file_name);
+
+                match file_result {
+                    Ok(mut handle) => {
+                        match handle.write_all(code.as_bytes()) {
+                            Ok(_) => {
+                                Ok(())
+                            }
+                            Err(e) => {
+                                Err(format!("Could not save source code to file '{}' - {}", file_name, e))
+                            }
                         }
                     }
+                    Err(e) => {
+                        Err(format!("Could not save source code to file '{}' - {}", file_name, e))
+                    }
                 }
-                Err(e) => {
-                    Err(format!("Could not save source code to file '{}' - {}", file_name, e))
-                }
+            } else {
+                println!("{}", code);
+                Ok(())
             }
+
+
         }
         Err(e) => {
             Err(format!("Could not translate regex - {}", e))
         }
     }
 }
+

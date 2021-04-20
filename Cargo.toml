@@ -1,11 +1,14 @@
 [package]
 name = "native_regex"
-version = "0.1.8"
+version = "0.2.1"
 authors = ["ray33ee <30669752+ray33ee@users.noreply.github.com>"]
 edition = "2018"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# native-regex-lib = { git = "https://github.com/ray33ee/native-regex-lib", branch="main" }
+native-regex-lib = { path = "E:\\Software Projects\\IntelliJ\\native-regex-lib" }
 regex = "1.4.3"
 clap = "2.33.3"

@@ -5,15 +5,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 ### To Do
-- Make sure `CharacterSet::from` contains no overlapping ranges
-- Add a bunch of helper functions that act as a wrapper around the Native Regex function and implement as close to the `regex` crate as possible, including
- - Matching
- - Capturing
- - Regex sets
-- Add a validator for the function name to ensure that the name complies with the Rust naming system
 
 ### Unfinished Ideas
-- Try to identify regexes that use backtracking, and warn user that backtracking is not supported 
+
+## [0.2.1] - 2021-03-17
+
+### Added
+- Ability to send code output to `stdout`
+- Works with the new native-regex-lib system 
+
+### Changed
+- Error and debug messages sent to `stderr`
+
+## [0.2.0] - 2021-03-16
+
+### Added
+- Ability to specify the start position in regex function
+
+### Changed
+- 'file' option is now not required. If it is omitted the source is sent to `stdout` via `println!`
+- Output sent due to the verbosity option is sent to `stderr`
+- Reverted to indexing captures (instead of hashing) since named captures can map to indices (which in turn map to the capture)
+- Core code moved into native-regex-lib project. This project is now only the executable
+
+### Fixed
+- Correct start and end indices fixed (for capture groups)
 
 ## [0.1.8] - 2021-03-15
 

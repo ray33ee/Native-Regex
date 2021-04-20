@@ -72,10 +72,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
+name = "native-regex-lib"
+version = "0.4.1"
+dependencies = [
+ "regex",
+ "regex-syntax",
+]
+
+[[package]]
 name = "native_regex"
-version = "0.1.8"
+version = "0.2.1"
 dependencies = [
  "clap",
+ "native-regex-lib",
  "regex",
 ]
 
@@ -99,9 +108,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.22"
+version = "0.6.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
+checksum = "24d5f089152e60f62d28b835fbff2cd2e8dc0baf1ac13343bef92ab7eed84548"
 
 [[package]]
 name = "strsim"
